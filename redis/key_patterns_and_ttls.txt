@@ -1,0 +1,44 @@
+# Redis Key Patterns & TTLs for ECO-GUIDE Auth System
+
+# OTP Cache (RAM-only, for OTP verification)
+- otp:temp:<temp_user_id>               => value = otp_hmac (string)
+  TTL = otp_valid_seconds (e.g., 300s = 5 minutes)
+
+# Rate Limiting Counters (for OTP requests, login attempts)
+- rate:user:<user_id>:otp               => value = counter (integer)
+  TTL = rate_limit_window_seconds (e.g., 600s = 10 minutes)
+- rate:ip:<ip_address>:otp              => value = counter (integer)
+  TTL = rate_limit_window_seconds (e.g., 600s = 10 minutes)
+# Note: Implement exponential backoff and progressive blocking logic in backend after these limits are hit.
+
+# Refresh Token Management (primary cache for rotation logic)
+- refresh:current:<family_id>           => value = current_token_hash (string)
+  TTL = refresh_token_lifetime_seconds (e.g., 60 days)
+  (This key always points to the LATEST valid token in a rotation family)
+
+- refresh:token:<token_hash>            => value = JSON (HSET with metadata)
+  HSET fields: jti, family_id, user_id, device_id, issued_at, expires_at, prev_token_hash, is_revoked (boolean as string "true"/"false")
+  TTL = expires_at_seconds (e.g., 60 days)
+  (Stores metadata for a specific token hash. Used by Lua script.)
+
+- refresh:prev:<token_hash>             => value = old_token_hash or "1" (string)
+  TTL = grace_period_seconds (e.g., 30s)
+  (Marks an `old_hash` as used for a short grace period, primarily for race condition handling of older client requests during rotation.)
+
+# User/Device Session Tracking (for listing active sessions, global logout)
+- user:refresh:families:<user_id>       => SET of family_ids (SADD/SREM)
+  TTL = refresh_token_lifetime_seconds (e.g., 60 days)
+  (Allows quick retrieval of all token families/sessions for a given user for global revocation.)
+
+- device:sessions:<device_id>           => SET of token_hashes
+  TTL = refresh_token_lifetime_seconds (e.g., 60 days)
+  (Allows quick retrieval of all tokens for a given device_id.)
+
+# Revocation Channel (for broadcasting revocation events)
+- revocation:channel                    => PUB/SUB channel
+  (Backend publishes revocation messages here; consumers can listen to invalidate caches, trigger N8N workflows, etc.)
+
+# General Notes:
+- All TTLs should be managed by the backend based on token/OTP validity periods.
+- Prefix keys with `app:<env>:` if running multiple applications/environments on the same Redis instance (e.g., `app:prod:refresh:current:...`).
+- Use atomic operations (Lua scripts) for critical updates involving multiple keys (like token rotation).

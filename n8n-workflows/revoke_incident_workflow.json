@@ -1,0 +1,103 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "path": "revoke-incident",
+        "options": {}
+      },
+      "name": "Webhook (Revoke Trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 260],
+      "id": "a0a0a0a0-a0a0-a0a0-a0a0-a0a0a0a0a0a0"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.BACKEND_API_URL }}/auth/token/revoke",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": [
+          {
+            "name": "X-Internal-API-Key",
+            "value": "={{ $env.INTERNAL_API_KEY }}"
+          }
+        ],
+        "sendJSON": true,
+        "jsonBody": "={ \"user_id\": $json.user_id, \"event\": $json.event, \"reason\": $json.reason }",
+        "options": {
+          "authentication": "none"
+        }
+      },
+      "name": "Call Backend (Global Revoke)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [480, 260],
+      "id": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1"
+    },
+    {
+      "parameters": {
+        "channel": "={{ $env.SLACK_SECURITY_CHANNEL }}",
+        "text": "=‼️ Security Alert: Token Reuse Detected ‼️\n\n**Event:** {{ $json.event }}\n**User ID:** {{ $json.user_id }}\n**Device ID:** {{ $json.device_id || 'N/A' }}\n**Timestamp:** {{ $json.timestamp }}\n**Reason:** {{ $json.reason }}\n\nAction: All sessions revoked for user {{ $json.user_id }}. Please investigate immediately.",
+        "username": "Security Bot"
+      },
+      "name": "Slack (Security Alert)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [720, 160],
+      "id": "c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2",
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR-SLACK-CREDENTIAL-ID",
+          "name": "My Slack App"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "project": "={{ $env.JIRA_PROJECT_KEY }}",
+        "issueType": "Task",
+        "summary": "=Security Incident: Token Reuse Detected for User {{ $json.user_id }}",
+        "description": "=A token reuse event was detected for User ID: {{ $json.user_id }}. All sessions have been revoked.\n\n**Event Details:**\n- Event: {{ $json.event }}\n- Device ID: {{ $json.device_id || 'N/A' }}\n- Timestamp: {{ $json.timestamp }}\n- Reason: {{ $json.reason }}\n\n**Action Required:**\n1. Review user activity logs.\n2. Contact user for verification if suspicious activity is confirmed.\n3. Close this ticket after investigation and resolution."
+      },
+      "name": "Jira (Create Incident Ticket)",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [720, 360],
+      "id": "d3d3d3d3-d3d3-d3d3-d3d3-d3d3d3d3d3d3",
+      "credentials": {
+        "jiraApi": {
+          "id": "YOUR-JIRA-CREDENTIAL-ID",
+          "name": "My Jira Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "response",
+        "responseMode": "json",
+        "jsonBody": "={ \"status\": \"processed\" }"
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 260],
+      "id": "e4e4e4e4-e4e4-e4e4-e4e4-e4e4e4e4e4e4"
+    }
+  ],
+  "connections": {
+    "Webhook (Revoke Trigger)": [
+      { "node": "Call Backend (Global Revoke)", "type": "main", "index": 0 }
+    ],
+    "Call Backend (Global Revoke)": [
+      { "node": "Slack (Security Alert)", "type": "main", "index": 0 },
+      { "node": "Jira (Create Incident Ticket)", "type": "main", "index": 0 }
+    ],
+    "Slack (Security Alert)": [
+      { "node": "Respond to Webhook", "type": "main", "index": 0 }
+    ],
+    "Jira (Create Incident Ticket)": [
+      { "node": "Respond to Webhook", "type": "main", "index": 0 }
+    ]
+  }
+}

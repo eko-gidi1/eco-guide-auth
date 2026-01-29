@@ -1,0 +1,61 @@
+{
+  "name": "ECO-GUIDE Auth System",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace", # Matches the volume mount in docker-compose.yml
+  "remoteUser": "node", # Or 'root' if you prefer, but 'node' is safer for Node.js projects
+
+  // Features allow adding common tools easily (Node.js, Flutter)
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18" # Specify your Node.js version
+    },
+    "ghcr.io/devcontainers/features/flutter:1": {
+      "version": "latest", # Or a specific Flutter version like "3.16.5"
+      "channel": "stable"
+    },
+    // Add other features like 'git', 'docker-in-docker' if needed
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "upgradePackages": true
+    }
+  },
+
+  // Use 'postCreateCommand' to run commands after the container is created.
+  // This is handled by 'command' in docker-compose.yml in this setup,
+  // but you can put other setup scripts here if needed.
+  // "postCreateCommand": "echo 'Container created. See docker-compose command for app startup.'"
+
+  // Forward these ports from the container to your local machine (or Codespaces web access)
+  "forwardPorts": [3000, 8080, 6379],
+  
+  // Customizations for VS Code in the container
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh", # If zsh is installed via common-utils
+        "editor.formatOnSave": true,
+        "[dart]": {
+          "editor.formatOnSave": true,
+          "editor.formatOnType": true,
+          "editor.rulers": [80],
+          "editor.selectionHighlight": false,
+          "editor.suggest.snippetsPreventQuickSuggestions": false,
+          "editor.suggestSelection": "first",
+          "editor.tabCompletion": "onlySnippets",
+          "editor.wordBasedSuggestions": false
+        }
+      },
+      "extensions": [
+        "Dart-Code.flutter",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker",
+        "formulahendry.auto-rename-tag",
+        "yzhang.markdown-all-in-one"
+        // Add other useful extensions
+      ]
+    }
+  }
+}

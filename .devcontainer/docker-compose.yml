@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ../ # Build context is the root of the repository
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached # Mount the entire repository into /workspace
+    environment:
+      # Environment variables for the dev container (not necessarily for the apps themselves)
+      # Application-specific env vars should be in .env files within flutter-app/ and mock-backend/
+      - REDIS_URL=redis://redis:6379 # Redis hostname is 'redis' because it's a service in this compose file
+    ports:
+      - "3000:3000" # Node.js Mock Backend
+      - "8080:8080" # Flutter Web App (default port, or can be changed)
+      # - "5678:5678" # Uncomment if you decide to run n8n inside this same docker-compose for dev
+    depends_on:
+      - redis
+    # The 'command' here tells the container what to run once it's up.
+    # We want to install dependencies, then start backend and flutter web.
+    # 'tail -f /dev/null' keeps the container running in the foreground.
+    command: >
+      bash -c "
+        echo 'Installing backend dependencies...' &&
+        cd mock-backend && npm install &&
+        echo 'Installing Flutter dependencies...' &&
+        cd ../flutter-app && flutter pub get &&
+        echo 'Starting mock backend...' &&
+        npm run dev & # Start backend in background (using nodemon for dev)
+        echo 'Starting Flutter web app...' &&
+        flutter run -d web --web-hostname 0.0.0.0 --web-port 8080 & # Start Flutter web in background
+        echo 'All services started. Keeping container alive...' &&
+        tail -f /dev/null # Keep container running
+      "
+
+  redis:
+    image: redis:6-alpine # Lightweight Redis image
+    ports:
+      - "6379:6379" # Map Redis default port
+    volumes:
+      - redis_data:/data # Persist Redis data across container restarts
+    command: redis-server --appendonly yes # Ensure data persistence
+
+  # Uncomment this block if you want n8n to be part of the same docker-compose for development
+  # n8n:
+  #   image: n8nio/n8n:latest
+  #   ports:
+  #     - "5678:5678" # n8n UI
+  #   volumes:
+  #     - n8n_data:/home/node/.n8n # Persist n8n data (workflows, credentials)
+  #   environment:
+  #     - N8N_HOST=localhost
+  #     - N8N_PORT=5678
+  #     - N8N_BASIC_AUTH_ACTIVE=false # For dev, but use auth in prod
+  #     - N8N_EDITOR_BASE_URL=http://localhost:5678/ # Adjust if not running on localhost
+  #   depends_on:
+  #     - redis # n8n might need Redis for some features
+
+volumes:
+  redis_data:
+  # n8n_data: # Uncomment if n8n service is active

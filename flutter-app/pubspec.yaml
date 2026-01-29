@@ -1,0 +1,32 @@
+name: eco_guide_auth_app
+description: ECO-GUIDE Auth & Privacy System Client.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  cupertino_icons: ^1.0.2
+  dio: ^5.3.3
+  flutter_secure_storage: ^9.0.0
+  device_info_plus: ^9.1.0
+  crypto: ^3.0.3
+  uuid: ^4.2.1
+  logger: ^2.0.2+1
+  local_auth: ^2.1.8
+  url_launcher: ^6.2.2 # For opening support URLs
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

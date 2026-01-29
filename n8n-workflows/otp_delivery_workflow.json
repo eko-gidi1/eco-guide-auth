@@ -1,0 +1,218 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "path": "otp-delivery",
+        "options": {},
+        "responseMode": "lastNode",
+        "jsonParameters": {
+          "status": "ok",
+          "message": "=OTP delivery initiated for {{ $json.identifier }}"
+        }
+      },
+      "name": "Webhook (OTP Request)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 260],
+      "id": "e0b0e0b0-e0b0-e0b0-e0b0-e0b0e0b0e0b0"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.BACKEND_API_URL }}/internal/otp/generate",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": [
+          {
+            "name": "X-Internal-API-Key",
+            "value": "={{ $env.INTERNAL_API_KEY }}"
+          }
+        ],
+        "sendJSON": true,
+        "jsonBody": "={ \"identifier\": $json.identifier, \"channel\": $json.channel, \"temp_user_id\": $json.temp_user_id, \"client_ip\": $json.client_ip }",
+        "options": {
+          "authentication": "none"
+        }
+      },
+      "name": "Call Backend (Generate OTP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [480, 260],
+      "id": "c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1"
+    },
+    {
+      "parameters": {
+        "conditions": [
+          {
+            "type": "number",
+            "value1": "={{ $json.statusCode }}",
+            "operator": "==",
+            "value2": "200"
+          }
+        ]
+      },
+      "name": "If OTP Generated OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 260],
+      "id": "d2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2"
+    },
+    {
+      "parameters": {
+        "conditions": [
+          {
+            "type": "string",
+            "value1": "={{ $json.channel }}",
+            "operator": "==",
+            "value2": "sms"
+          }
+        ]
+      },
+      "name": "If SMS Channel",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, 160],
+      "id": "e3e3e3e3-e3e3-e3e3-e3e3-e3e3e3e3e3e3"
+    },
+    {
+      "parameters": {
+        "conditions": [
+          {
+            "type": "string",
+            "value1": "={{ $json.channel }}",
+            "operator": "==",
+            "value2": "email"
+          }
+        ]
+      },
+      "name": "If Email Channel",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, 360],
+      "id": "f4f4f4f4-f4f4-f4f4-f4f4-f4f4f4f4f4f4"
+    },
+    {
+      "parameters": {
+        "phoneNumber": "={{ $json.identifier }}",
+        "message": "={{ $json.otp_message }}"
+      },
+      "name": "Twilio (Send SMS)",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1200, 160],
+      "id": "g5g5g5g5-g5g5-g5g5-g5g5-g5g5g5g5g5g5",
+      "credentials": {
+        "twilioApi": {
+          "id": "YOUR-TWILIO-CREDENTIAL-ID",
+          "name": "My Twilio Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "={{ $env.SES_SENDER_EMAIL }}",
+        "to": "={{ $json.identifier }}",
+        "subject": "Your ECO-GUIDE OTP",
+        "htmlBody": "=<p>Your ECO-GUIDE One-Time Password is: <strong>{{ $('Call Backend (Generate OTP)').item.json.otp_code }}</strong></p><p>This OTP is valid for 5 minutes. Do not share it with anyone.</p>"
+      },
+      "name": "AWS SES (Send Email)",
+      "type": "n8n-nodes-base.awsSes",
+      "typeVersion": 1,
+      "position": [1200, 360],
+      "id": "h6h6h6h6-h6h6-h6h6-h6h6-h6h6h6h6h6h6",
+      "credentials": {
+        "aws": {
+          "id": "YOUR-AWS-CREDENTIAL-ID",
+          "name": "My AWS Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "response",
+        "responseMode": "json",
+        "jsonBody": "={ \"status\": \"rate_limited\", \"retry_after_seconds\": {{ $('Call Backend (Generate OTP)').item.json.retry_after }} }"
+      },
+      "name": "Respond 429 (Rate Limited)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 560],
+      "id": "i7i7i7i7-i7i7-i7i7-i7i7-i7i7i7i7i7i7"
+    },
+    {
+      "parameters": {
+        "mode": "response",
+        "responseMode": "json",
+        "jsonBody": "={ \"status\": \"error\", \"message\": \"Failed to generate OTP\" }"
+      },
+      "name": "Respond 500 (Backend Error)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [480, 560],
+      "id": "j8j8j8j8-j8j8-j8j8-j8j8-j8j8j8j8j8j8"
+    },
+    {
+      "parameters": {
+        "expression": "={{ $json.statusCode }}",
+        "value": "429"
+      },
+      "name": "If Backend Rate Limited",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [720, 460],
+      "id": "k9k9k9k9-k9k9-k9k9-k9k9-k9k9k9k9k9k9"
+    },
+    {
+      "parameters": {
+        "mode": "response",
+        "responseMode": "json",
+        "jsonBody": "={ \"status\": \"ok\", \"message\": \"SMS sent via Twilio\" }"
+      },
+      "name": "Respond (SMS OK)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 160],
+      "id": "l0l0l0l0-l0l0-l0l0-l0l0-l0l0l0l0l0l0"
+    },
+    {
+      "parameters": {
+        "mode": "response",
+        "responseMode": "json",
+        "jsonBody": "={ \"status\": \"ok\", \"message\": \"Email sent via SES\" }"
+      },
+      "name": "Respond (Email OK)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 360],
+      "id": "m1m1m1m1-m1m1-m1m1-m1m1-m1m1m1m1m1m1"
+    }
+  ],
+  "connections": {
+    "Webhook (OTP Request)": [
+      { "node": "Call Backend (Generate OTP)", "type": "main", "index": 0 }
+    ],
+    "Call Backend (Generate OTP)": [
+      { "node": "If OTP Generated OK", "type": "main", "index": 0 },
+      { "node": "If Backend Rate Limited", "type": "main", "index": 0 }
+    ],
+    "If OTP Generated OK": [
+      { "node": "If SMS Channel", "type": "main", "index": 0 },
+      { "node": "If Email Channel", "type": "main", "index": 1 }
+    ],
+    "If SMS Channel": [
+      { "node": "Twilio (Send SMS)", "type": "main", "index": 0 }
+    ],
+    "If Email Channel": [
+      { "node": "AWS SES (Send Email)", "type": "main", "index": 0 }
+    ],
+    "AWS SES (Send Email)": [
+      { "node": "Respond (Email OK)", "type": "main", "index": 0 }
+    ],
+    "Twilio (Send SMS)": [
+      { "node": "Respond (SMS OK)", "type": "main", "index": 0 }
+    ],
+    "If Backend Rate Limited": [
+      { "node": "Respond 429 (Rate Limited)", "type": "main", "index": 0 },
+      { "node": "Respond 500 (Backend Error)", "type": "main", "index": 1 }
+    ]
+  }
+}
